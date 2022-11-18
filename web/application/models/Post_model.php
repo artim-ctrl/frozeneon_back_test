@@ -151,7 +151,7 @@ class Post_model extends Emerald_Model
      */
     public function get_comments():array
     {
-       // TODO: task 2, комментирование
+       return Comment_model::get_all_by_assign_id($this->get_id());
     }
 
     /**
@@ -177,6 +177,22 @@ class Post_model extends Emerald_Model
     {
         parent::__construct();
         $this->set_id($id);
+    }
+
+    public static function exists_by_id(int $id)
+    {
+        return !empty(App::get_s()->from(self::CLASS_TABLE)->where(['id' => $id])->one());
+    }
+
+    public static function get_full_by_id(int $id)
+    {
+        $post = (new Post_model())->set(App::get_s()->from(self::CLASS_TABLE)->where(['id' => $id])->one());
+        return static::_preparation_full_info($post);
+    }
+
+    public static function get_by_id(int $id): Post_model
+    {
+        return (new Post_model())->set_id($id)->reload();
     }
 
     public function reload()
@@ -208,14 +224,21 @@ class Post_model extends Emerald_Model
     }
 
     /**
-     * @param User_model $user
-     *
      * @return bool
      * @throws Exception
      */
-    public function increment_likes(User_model $user): bool
+    public function increment_likes(): bool
     {
-        // TODO: task 3, лайк поста
+        App::get_s()->from(self::get_table())
+           ->where(['id' => $this->get_id()])
+           ->update(sprintf('likes = likes + %s', App::get_s()->quote(1)))
+           ->execute();
+
+        if (!App::get_s()->is_affected()) {
+            return false;
+        }
+
+        return true;
     }
 
 

@@ -35,10 +35,20 @@ var app = new Vue({
 			.then(function (response) {
 				self.boosterpacks = response.data.boosterpacks;
 			})
+        axios
+            .get('/main_page/get_likes_balance')
+            .then(function (response) {
+                self.likes = response.data.likes;
+            })
 	},
 	methods: {
 		logout: function () {
-			console.log ('logout');
+            axios.post('/main_page/logout')
+                .then(function (response) {
+                    if (response.data.status === 'success') {
+                        location.reload();
+                    }
+                })
 		},
 		logIn: function () {
 			var self= this;
@@ -59,12 +69,21 @@ var app = new Vue({
 
 				axios.post('/main_page/login', form)
 					.then(function (response) {
-						if(response.data.user) {
+						if (response.data.status === 'success') {
 							location.reload();
-						}
-						setTimeout(function () {
-							$('#loginModal').modal('hide');
-						}, 500);
+
+                            setTimeout(function () {
+                                $('#loginModal').modal('hide');
+                            }, 500);
+						} else if (response.data.status === 'info') {
+                            if (response.data.error === 'invalidLogin') {
+                                self.invalidLogin = true;
+                            }
+
+                            if (response.data.error === 'invalidPass') {
+                                self.invalidPass = true;
+                            }
+                        }
 					})
 			}
 		},
@@ -79,28 +98,33 @@ var app = new Vue({
 				axios.post(
 					'/main_page/comment',
 					comment
-				).then(function () {
-
+				).then(function (response) {
+                    if (response.data.status === STATUS_SUCCESS) {
+                        self.post.coments.push(response.data.comment);
+                        self.commentText = '';
+                    }
 				});
 			}
 
 		},
 		refill: function () {
-			var self= this;
-			if(self.addSum === 0){
-				self.invalidSum = true
-			}
-			else{
-				self.invalidSum = false
-				sum = new FormData();
-				sum.append('sum', self.addSum);
-				axios.post('/main_page/add_money', sum)
-					.then(function (response) {
-						setTimeout(function () {
-							$('#addModal').modal('hide');
-						}, 500);
-					})
-			}
+			var self = this;
+            if (self.addSum === 0 || isNaN(+self.addSum)) {
+                self.invalidSum = true;
+            } else {
+                self.invalidSum = false;
+
+                sum = new FormData();
+                sum.append('sum', self.addSum);
+
+                axios.post('/main_page/add_money', sum)
+                    .then(function (response) {
+                        console.log(response.data)
+                        setTimeout(function () {
+                        	$('#addModal').modal('hide');
+                        }, 500);
+                    });
+            }
 		},
 		openPost: function (id) {
 			var self= this;
@@ -115,15 +139,17 @@ var app = new Vue({
 					}
 				})
 		},
-		addLike: function (type, id) {
-			var self = this;
-			const url = '/main_page/like_' + type + '/' + id;
+		addLike: function (type, entity) {
+            let self = this;
+			const url = '/main_page/like_' + type + '/' + entity.id;
 			axios
 				.get(url)
 				.then(function (response) {
-					self.likes = response.data.likes;
+                    if (response.data.status === STATUS_SUCCESS) {
+                        entity.likes = +response.data.likes;
+                        self.likes--;
+                    }
 				})
-
 		},
 		buyPack: function (id) {
 			var self= this;
@@ -133,6 +159,7 @@ var app = new Vue({
 				.then(function (response) {
 					self.amount = response.data.amount
 					if(self.amount !== 0){
+                        self.likes += response.data.amount;
 						setTimeout(function () {
 							$('#amountModal').modal('show');
 						}, 500);

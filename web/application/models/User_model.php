@@ -4,6 +4,8 @@ namespace Model;
 use App;
 use Exception;
 use http\Client\Curl\User;
+use Model\Enum\Transaction_info;
+use Model\Enum\Transaction_type;
 use stdClass;
 use System\Emerald\Emerald_model;
 
@@ -140,7 +142,7 @@ class User_model extends Emerald_model {
         return $this->save('rights', $rights);
     }
 
-    public function get_likes_balance(): Int
+    public function get_likes_balance(): int
     {
         return $this->likes_balance;
     }
@@ -260,16 +262,21 @@ class User_model extends Emerald_model {
     }
 
     /**
-     * @param float $sum
-     *
+     * @param float $addBalance
      * @return bool
-     * @throws \ShadowIgniterException
+     * @throws Exception
      */
-    public function add_money(float $sum): bool
+    public function add_money(float $addBalance): bool
     {
-        // TODO: task 4, добавление денег
+        App::get_s()->from(self::get_table())
+           ->where(['id' => $this->get_id()])
+           ->update([
+               sprintf('wallet_balance = wallet_balance + %s', $addBalance),
+               sprintf('wallet_total_refilled = wallet_total_refilled + %s', $addBalance),
+           ])
+           ->execute();
 
-        return TRUE;
+        return App::get_s()->is_affected();
     }
 
 
@@ -281,9 +288,25 @@ class User_model extends Emerald_model {
      */
     public function remove_money(float $sum): bool
     {
-        // TODO: task 5, списание денег
+        App::get_s()->from(self::get_table())
+           ->where(['id' => $this->get_id()])
+           ->update([
+               sprintf('wallet_balance = wallet_balance - %s', $sum),
+               sprintf('wallet_total_withdrawn = wallet_total_withdrawn + %s', $sum),
+           ])
+           ->execute();
 
-        return TRUE;
+        return App::get_s()->is_affected();
+    }
+
+    public function add_likes(int $likes): bool
+    {
+        App::get_s()->from(self::get_table())
+           ->where(['id' => $this->get_id()])
+           ->update(sprintf('likes_balance = likes_balance + %s', $likes))
+           ->execute();
+
+        return App::get_s()->is_affected();
     }
 
     /**
@@ -297,12 +320,7 @@ class User_model extends Emerald_model {
             ->update(sprintf('likes_balance = likes_balance - %s', App::get_s()->quote(1)))
             ->execute();
 
-        if ( ! App::get_s()->is_affected())
-        {
-            return FALSE;
-        }
-
-        return TRUE;
+        return App::get_s()->is_affected();
     }
 
     /**
@@ -342,11 +360,17 @@ class User_model extends Emerald_model {
     /**
      * @param string $email
      *
-     * @return User_model
+     * @return User_model|null
      */
-    public static function find_user_by_email(string $email): User_model
+    public static function find_user_by_email(string $email): ?User_model
     {
-        // TODO: task 1, аутентификация
+        $userData = App::get_s()->from(self::CLASS_TABLE)->where(['email' => $email])->one();
+        return static::transform_one($userData);
+    }
+
+    public static function get_by_id(int $id): array
+    {
+        return App::get_s()->from(self::CLASS_TABLE)->where(['id' => $id])->one();
     }
 
     /**
@@ -366,8 +390,6 @@ class User_model extends Emerald_model {
         $steam_id = intval(self::get_session_id());
         return $steam_id > 0;
     }
-
-
 
     /**
      * Returns current user or empty model
